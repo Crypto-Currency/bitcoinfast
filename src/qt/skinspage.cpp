@@ -37,7 +37,7 @@ SkinsPage::SkinsPage(QWidget *parent) : QWidget(parent), ui(new Ui::SkinsPage)
   QPixmap downloadPixmap(":/icons/gears");
   QIcon downloadButtonIcon(downloadPixmap);
   downloadButton->setIcon(downloadButtonIcon);
-  QSettings settings("LitecoinPlus", "settings");
+  QSettings settings("BitcoinFast", "settings");
   inipath=GetDataDir().string().c_str();
   inipath=inipath+"/themes/";
   loadSettings();
@@ -241,25 +241,26 @@ void SkinsPage::optionChanged()
 
 void SkinsPage::saveSettings()
 {
-  QSettings settings("LitecoinPlus", "settings");
+  QSettings settings("BitcoinFast", "settings");
   settings.setValue("filename", inifname);
 }
 
 void SkinsPage::loadSettings()
 {
-  QSettings settings("LitecoinPlus", "settings");
+  QSettings settings("BitcoinFast", "settings");
   inifname=settings.value("filename", "").toString();
 }
  
 void SkinsPage::loadSkin()
 {
-	QFile styleFile(inipath+"/"+inifname);
-	styleFile.open(QFile::ReadOnly);
-	QByteArray bytes = styleFile.readAll();
-	QString newStyleSheet(bytes);
-	QApplication *app = (QApplication*)QApplication::instance();
-	app->setStyleSheet(NULL);
-	app->setStyleSheet(newStyleSheet);
+  QFile styleFile(inipath+"/"+inifname);
+  styleFile.open(QFile::ReadOnly);
+  QByteArray bytes = styleFile.readAll();
+  QString newStyleSheet(bytes);
+  newStyleSheet.replace("myimages",inipath+"/images"); // deal with relative path
+  QApplication *app = (QApplication*)QApplication::instance();
+  app->setStyleSheet(NULL);
+  app->setStyleSheet(newStyleSheet);
 }
 
 void SkinsPage::resizeEvent(QResizeEvent* event)
@@ -272,7 +273,7 @@ void SkinsPage::resizeEvent(QResizeEvent* event)
 void SkinsPage::getlist()
 {
   // show a downloading message in status bar
-  statusLabel->setText("<b>" + tr("Downloading themes from http://litecoinplus.co...") + "</b>");
+  statusLabel->setText("<b>" + tr("Downloading themes from https://bitcoinfast.co...") + "</b>");
   latestNetError = "";
 
   // first, let's disable the download button (triple-clicks fanatics !)
@@ -286,7 +287,7 @@ void SkinsPage::getlist()
   connect(&manager,SIGNAL(finished(QNetworkReply*)),this,SLOT(getListFinished(QNetworkReply*)));
 
   QNetworkRequest request;
-  request.setUrl(QUrl("http://litecoinplus.co/themes/list.txt"));
+  request.setUrl(QUrl("https://bitcoinfast.co/themes/list.txt"));
   request.setRawHeader("User-Agent", "Wallet theme request");
 
   networkTimer->start();
@@ -318,7 +319,7 @@ bool SkinsPage::netHandleError(QNetworkReply* reply, QString urlDownload)
 
 void SkinsPage::getListFinished(QNetworkReply* reply)
 {
-  if (netHandleError(reply, "http://litecoinplus.co/themes/list.txt")) {
+  if (netHandleError(reply, "https://bitcoinfast.co/themes/list.txt")) {
     disconnect(&manager, SIGNAL(finished(QNetworkReply*)), 0, 0);  
     connect(&manager, SIGNAL(finished(QNetworkReply*)), SLOT(downloadFinished(QNetworkReply*)));
     QString pagelist=reply->readAll();
@@ -332,7 +333,7 @@ void SkinsPage::getListFinished(QNetworkReply* reply)
       line.replace("\r",""); // this one too
       if(line.length())
       {  
-        download("http://litecoinplus.co/themes/"+line);
+        download("https://bitcoinfast.co/themes/"+line);
       } 
     }
   }

@@ -408,6 +408,7 @@ void BitcoinGUI::createToolBars()
 
     QToolBar *toolbar2 = addToolBar(tr("Actions toolbar"));
     toolbar2->setToolButtonStyle(Qt::ToolButtonTextBesideIcon);
+toolbar2->addAction(skinsPageAction);
     toolbar2->addAction(exportAction);
 }
 
@@ -1287,7 +1288,7 @@ void BitcoinGUI::updateMintingWeights()
 void BitcoinGUI::openConfig()
 {
   boost::filesystem::path pathConfig = GetConfigFile();
-  /* Open bitcoin-scrypt.conf with the associated application */
+  /* Open BitcoinFast.conf with the associated application */
   if (boost::filesystem::exists(pathConfig))
     QDesktopServices::openUrl(QUrl::fromLocalFile(pathConfig.string().c_str()));
 printf("pathConfig=%s\n",pathConfig.string().c_str());
