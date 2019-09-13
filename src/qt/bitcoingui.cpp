@@ -28,6 +28,9 @@
 #include "wallet.h"
 #include "bitcoinrpc.h"
 #include "version.h"
+#include "skinspage.h"
+#include "splash.h"
+#include "init.h"
 
 #ifdef Q_OS_MAC
 #include "macdockiconhandler.h"
@@ -64,7 +67,23 @@
 extern CWallet *pwalletMain;
 extern int64 nLastCoinStakeSearchInterval;
 extern unsigned int nStakeTargetSpacing;
-static QSplashScreen *splashref;
+extern BitcoinGUI *guiref;
+extern Splash *stwref;
+
+void updateBitcoinGUISplashMessage(char *message)
+{
+	if (guiref) {
+		guiref-> splashMessage(_(message), true);
+	}
+	if (stwref) {
+		stwref->setMessage(message);
+	}
+}
+
+void BitcoinGUI::loadSkin()
+{
+	skinsPage->loadSkin();
+}
 
 BitcoinGUI::BitcoinGUI(QWidget *parent):
     QMainWindow(parent),
@@ -119,12 +138,18 @@ menuBar()->setNativeMenuBar(false);// menubar on form instead
 
     signVerifyMessageDialog = new SignVerifyMessageDialog(this);
 
+	skinsPage = new SkinsPage(this);
+    connect(skinsPage, SIGNAL(error(QString,QString,bool)), this, SLOT(error(QString,QString,bool)));
+    connect(skinsPage, SIGNAL(information(QString,QString)), this, SLOT(information(QString,QString)));
+    connect(skinsPage, SIGNAL(status(QString)), this, SLOT(status(QString)));
+
     centralWidget = new QStackedWidget(this);
     centralWidget->addWidget(overviewPage);
     centralWidget->addWidget(transactionsPage);
     centralWidget->addWidget(addressBookPage);
     centralWidget->addWidget(receiveCoinsPage);
     centralWidget->addWidget(sendCoinsPage);
+	centralWidget->addWidget(skinsPage);
     setCentralWidget(centralWidget);
 
     // Create status bar
@@ -133,8 +158,8 @@ menuBar()->setNativeMenuBar(false);// menubar on form instead
     // Status bar notification icons
     QFrame *frameBlocks = new QFrame();
     frameBlocks->setContentsMargins(0,0,0,0);
-    frameBlocks->setMinimumWidth(85);
-    frameBlocks->setMaximumWidth(85);
+    frameBlocks->setMinimumWidth(102);
+    frameBlocks->setMaximumWidth(102);
     QHBoxLayout *frameBlocksLayout = new QHBoxLayout(frameBlocks);
     frameBlocksLayout->setContentsMargins(3,0,3,0);
     frameBlocksLayout->setSpacing(3);
@@ -174,21 +199,12 @@ menuBar()->setNativeMenuBar(false);// menubar on form instead
     progressBar->setAlignment(Qt::AlignCenter);
     progressBar->setVisible(false);
 
-    // Override style sheet for progress bar for styles that have a segmented progress bar,
-    // as they make the text unreadable (workaround for issue #1071)
-    // See https://qt-project.org/doc/qt-4.8/gallery.html
-    QString curStyle = qApp->style()->metaObject()->className();
-    if(curStyle == "QWindowsStyle" || curStyle == "QWindowsXPStyle")
-    {
-        progressBar->setStyleSheet("QProgressBar { background-color: #e8e8e8; border: 1px solid grey; border-radius: 7px; padding: 1px; text-align: center; } QProgressBar::chunk { background: QLinearGradient(x1: 0, y1: 0, x2: 1, y2: 0, stop: 0 #FF8000, stop: 1 orange); border-radius: 7px; margin: 0px; }");
-    }
 
     statusBar()->addWidget(progressBarLabel);
     statusBar()->addWidget(progressBar);
     statusBar()->addPermanentWidget(frameBlocks);
 
     syncIconMovie = new QMovie(":/movies/update_spinner", "mng", this);
-	// this->setStyleSheet("background-color: #ceffee;");
 
     // Clicking on a transaction on the overview page simply sends you to transaction history page
     connect(overviewPage, SIGNAL(transactionClicked(QModelIndex)), this, SLOT(gotoHistoryPage()));
@@ -204,6 +220,8 @@ menuBar()->setNativeMenuBar(false);// menubar on form instead
     connect(addressBookPage, SIGNAL(verifyMessage(QString)), this, SLOT(gotoVerifyMessageTab(QString)));
     // Clicking on "Sign Message" in the receive coins page sends you to the sign message tab
     connect(receiveCoinsPage, SIGNAL(signMessage(QString)), this, SLOT(gotoSignMessageTab(QString)));
+
+    connect(openConfigAction, SIGNAL(triggered()), this, SLOT(openConfig()));
 
     gotoOverviewPage();
 }
@@ -251,6 +269,16 @@ void BitcoinGUI::createActions()
     addressBookAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_5));
     tabGroup->addAction(addressBookAction);
 
+
+    skinsPageAction = new QAction(QIcon(":/icons/gears"), tr("&Themes"), this);
+    skinsPageAction->setToolTip(tr("Change the look of your wallet"));
+    skinsPageAction->setCheckable(true);
+    skinsPageAction->setShortcut(QKeySequence(Qt::ALT + Qt::Key_6));
+    tabGroup->addAction(skinsPageAction);
+
+    openConfigAction = new QAction(QIcon(":/icons/edit"), tr("Open Wallet &Configuration File"), this);
+    openConfigAction->setStatusTip(tr("Open wallet configuration file"));
+
     connect(overviewAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(overviewAction, SIGNAL(triggered()), this, SLOT(gotoOverviewPage()));
     connect(sendCoinsAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
@@ -261,6 +289,9 @@ void BitcoinGUI::createActions()
     connect(historyAction, SIGNAL(triggered()), this, SLOT(gotoHistoryPage()));
     connect(addressBookAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
     connect(addressBookAction, SIGNAL(triggered()), this, SLOT(gotoAddressBookPage()));
+    connect(skinsPageAction, SIGNAL(triggered()), this, SLOT(showNormalIfMinimized()));
+    connect(skinsPageAction, SIGNAL(triggered()), this, SLOT(gotoSkinsPage()));
+
 
     quitAction = new QAction(QIcon(":/icons/quit"), tr("E&xit"), this);
     quitAction->setToolTip(tr("Quit application"));
@@ -335,6 +366,8 @@ void BitcoinGUI::createMenuBar()
 
     // Configure the menus
     QMenu *file = appMenuBar->addMenu(tr("&File"));
+    file->addAction(openConfigAction);
+    file->addSeparator();
     file->addAction(exportAction);
     file->addSeparator();
     file->addAction(quitAction);
@@ -476,6 +509,7 @@ void BitcoinGUI::createTrayIcon()
     trayIconMenu->addAction(signMessageAction);
     trayIconMenu->addAction(verifyMessageAction);
     trayIconMenu->addSeparator();
+    trayIconMenu->addAction(openConfigAction);
     trayIconMenu->addAction(optionsAction);
     trayIconMenu->addAction(openRPCConsoleAction);
 #ifndef Q_OS_MAC // This is built-in on Mac
@@ -646,6 +680,22 @@ void BitcoinGUI::error(const QString &title, const QString &message, bool modal)
     }
 }
 
+void BitcoinGUI::information(const QString &title, const QString &message)
+{
+    // Report information from network/worker thread
+    QMessageBox::information(this, title, message, QMessageBox::Ok, QMessageBox::Ok);
+}
+
+void BitcoinGUI::status(const QString &message)
+{
+	bool vis = true;
+	if (message == "") {
+		vis = false;
+	}
+	progressBarLabel->setText(message);
+	progressBarLabel->setVisible(vis);
+}
+
 void BitcoinGUI::changeEvent(QEvent *e)
 {
     QMainWindow::changeEvent(e);
@@ -755,6 +805,15 @@ void BitcoinGUI::gotoAddressBookPage()
     exportAction->setEnabled(true);
     disconnect(exportAction, SIGNAL(triggered()), 0, 0);
     connect(exportAction, SIGNAL(triggered()), addressBookPage, SLOT(exportClicked()));
+}
+
+void BitcoinGUI::gotoSkinsPage()
+{
+    skinsPageAction->setChecked(true);
+    centralWidget->setCurrentWidget(skinsPage);
+
+    exportAction->setEnabled(false);
+    disconnect(exportAction, SIGNAL(triggered()), 0, 0);
 }
 
 void BitcoinGUI::gotoReceiveCoinsPage()
@@ -976,22 +1035,28 @@ void BitcoinGUI::zapWallet()
   //debug
   printf("running zapwallettxes from qt menu.\n");
 
-  // bring up splash screen
-  QSplashScreen splash(QPixmap(":/images/splash"), 0);
-  splash.show();
-  splash.setAutoFillBackground(true);
-  splashref = &splash;
+  // by Simone: ASK first.......... !
+  QString strMessage = tr("This operation will require a LONG time (more than a few minutes). <b>Are you sure you want to do it now</b> ?");
+  QMessageBox::StandardButton retval = QMessageBox::question(
+	      this, tr("ZAP Wallet warning"), strMessage,
+	      QMessageBox::Yes|QMessageBox::Cancel, QMessageBox::Yes);
+  if (retval == QMessageBox::Cancel)
+  {
+    return;
+  }
 
-  // Zap the wallet as requested by user
-  // 1= save meta data
-  // 2=remove meta data needed to restore wallet transaction meta data after -zapwallettxes
+  // by Simone: bring up the startup window
+  stwref->setMessage("");
+  stwref->systemOnTop();
+  stwref->showSplash();
+
   std::vector<CWalletTx> vWtx;
 
 
   splashMessage(_("Zapping all transactions from wallet..."));
   printf("Zapping all transactions from wallet...\n");
 
-// clear tables
+  // clear tables
 
   pwalletMain = new CWallet("wallet.dat");
   DBErrors nZapWalletRet = pwalletMain->ZapWalletTx(vWtx);
@@ -999,8 +1064,7 @@ void BitcoinGUI::zapWallet()
   {
     splashMessage(_("Error loading wallet.dat: Wallet corrupted"));
     printf("Error loading wallet.dat: Wallet corrupted\n");
-    if (splashref)
-      splash.close();
+    stwref->hide();
     return;
   }
 
@@ -1020,7 +1084,7 @@ void BitcoinGUI::zapWallet()
   {
     if (nLoadWalletRet == DB_CORRUPT)
     {
-    splashMessage(_("Error loading wallet.dat: Wallet corrupted"));
+      splashMessage(_("Error loading wallet.dat: Wallet corrupted"));
       printf("Error loading wallet.dat: Wallet corrupted\n");
     }
     else if (nLoadWalletRet == DB_NONCRITICAL_ERROR)
@@ -1035,10 +1099,9 @@ void BitcoinGUI::zapWallet()
     }
     else if (nLoadWalletRet == DB_NEED_REWRITE)
     {
-      setStatusTip(tr("Wallet needed to be rewritten: restart BitBar to complete"));
-      printf("Wallet needed to be rewritten: restart BitBar to complete\n");
-      if (splashref)
-        splash.close();
+      setStatusTip(tr("Wallet needed to be rewritten: restart Bitcoin Fast to complete"));
+      printf("Wallet needed to be rewritten: restart Bitcoin Fast to complete\n");
+      stwref->hide();
       return;
     }
     else
@@ -1049,7 +1112,7 @@ void BitcoinGUI::zapWallet()
   }
   
   splashMessage(_("Wallet loaded..."));
-  printf(" zap wallet  load     %15"PRI64d"ms\n", GetTimeMillis() - nStart);
+  printf(" zap wallet  load     %15" PRI64d "ms\n", GetTimeMillis() - nStart);
 
   splashMessage(_("Loaded lables..."));
   printf(" zap wallet  loading metadata\n");
@@ -1081,19 +1144,27 @@ void BitcoinGUI::zapWallet()
   splashMessage(_("Please restart your wallet."));
   printf(" zap wallet  done - please restart wallet.\n");
 
-//  close splash screen
-  if (splashref)
-    splash.close();
+  // by Simone: close startup window
+  stwref->hide();
 
-  QMessageBox::warning(this, tr("Zap Wallet Finished."), tr("Please restart your wallet for changes to take effect."));
+  // by Simone: display a message and QUIT the software, before some big damage is done by clicking around !
+  QMessageBox::warning(this, tr("Zap Wallet Finished."), "<b>" + tr("The wallet will now exit.") + "</b><br><br>" + tr("Please restart your wallet for changes to take effect."));
+  qApp->quit();
 }
 
-void BitcoinGUI::splashMessage(const std::string &message)
+void BitcoinGUI::splashMessage(const std::string &message, bool quickSleep)
 {
-  if(splashref)
+  if (stwref)
   {
-    splashref->showMessage(QString::fromStdString(message), Qt::AlignBottom|Qt::AlignHCenter, QColor(255,255,255));
-    QApplication::instance()->processEvents();
+    stwref->setMessage(message.c_str());
+    if (quickSleep)
+    {
+      Sleep(50);
+    }
+    else
+    {
+      Sleep(500);
+    }
   }
 }
 
@@ -1212,3 +1283,13 @@ void BitcoinGUI::updateMintingWeights()
         nNetworkWeight = GetPoSKernelPS();
     }
 }
+
+void BitcoinGUI::openConfig()
+{
+  boost::filesystem::path pathConfig = GetConfigFile();
+  /* Open bitcoin-scrypt.conf with the associated application */
+  if (boost::filesystem::exists(pathConfig))
+    QDesktopServices::openUrl(QUrl::fromLocalFile(pathConfig.string().c_str()));
+printf("pathConfig=%s\n",pathConfig.string().c_str());
+}
+

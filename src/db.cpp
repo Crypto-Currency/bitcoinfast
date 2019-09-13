@@ -7,6 +7,7 @@
 #include "net.h"
 #include "checkpoints.h"
 #include "util.h"
+#include "ui_interface.h"
 #include "main.h"
 #include "kernel.h"
 #include <boost/version.hpp>
@@ -20,6 +21,7 @@
 using namespace std;
 using namespace boost;
 
+extern CClientUIInterface uiInterface;
 
 unsigned int nWalletDBUpdated;
 
@@ -620,6 +622,11 @@ bool CTxDB::LoadBlockIndex()
     if (fRequestShutdown)
         return true;
 
+    unsigned int tempcount=0;
+    unsigned int steptemp=0;
+    string tempmess;
+    string mess = "Calculating best chain...";
+    uiInterface.InitMessage(_(mess.c_str()));
     // Calculate bnChainTrust
     vector<pair<int, CBlockIndex*> > vSortedByHeight;
     vSortedByHeight.reserve(mapBlockIndex.size());
@@ -627,12 +634,28 @@ bool CTxDB::LoadBlockIndex()
     {
         CBlockIndex* pindex = item.second;
         vSortedByHeight.push_back(make_pair(pindex->nHeight, pindex));
+      tempcount++;
+      if(tempcount>=10000)
+      {
+//        steptemp ++;
+        tempmess = "Loading pairs / "+ boost::to_string(pindex);
+        uiInterface.InitMessage(_(tempmess.c_str()));
+        tempcount=0;
+      }
     }
     sort(vSortedByHeight.begin(), vSortedByHeight.end());
     BOOST_FOREACH(const PAIRTYPE(int, CBlockIndex*)& item, vSortedByHeight)
     {
         CBlockIndex* pindex = item.second;
         pindex->bnChainTrust = (pindex->pprev ? pindex->pprev->bnChainTrust : 0) + pindex->GetBlockTrust();
+      tempcount++;
+      if(tempcount>=30000)
+      {
+//        steptemp ++;
+        tempmess = "Calculating stake modifiers / "+ boost::to_string(pindex);
+        uiInterface.InitMessage(_(tempmess.c_str()));
+        tempcount=0;
+      }
         // ppcoin: calculate stake modifier checksum
         pindex->nStakeModifierChecksum = GetStakeModifierChecksum(pindex);
         if (!CheckStakeModifierCheckpoints(pindex->nHeight, pindex->nStakeModifierChecksum))
@@ -795,28 +818,51 @@ bool CTxDB::LoadBlockIndex()
 
 bool CTxDB::LoadBlockIndexGuts()
 {
-    // Get database cursor
-    Dbc* pcursor = GetCursor();
-    if (!pcursor)
-        return false;
+  // Get database cursor
+  Dbc* pcursor = GetCursor();
+  if (!pcursor)
+    return false;
 
-    // Load mapBlockIndex
-    unsigned int fFlags = DB_SET_RANGE;
-    loop
+  // loop control variables
+  double ccc = 0;
+  double cnt = 0;
+  int oldProgress = -1;
+  cnt = (double)boost::filesystem::file_size(GetDataDir() / "blkindex.dat") / 512.0;
+  
+  // Load mapBlockIndex
+  unsigned int fFlags = DB_SET_RANGE;
+  loop
+  {
+    // Read next record
+    CDataStream ssKey(SER_DISK, CLIENT_VERSION);
+    if (fFlags == DB_SET_RANGE)
+      ssKey << make_pair(string("blockindex"), uint256(0));
+    CDataStream ssValue(SER_DISK, CLIENT_VERSION);
+    int ret = ReadAtCursor(pcursor, ssKey, ssValue, fFlags);
+    fFlags = DB_NEXT;
+    if (ret == DB_NOTFOUND)
+      break;
+    else if (ret != 0)
+      return false;
+
+    int progress = (ccc / cnt) * 100;
+    if (progress > 100)
     {
-        // Read next record
-        CDataStream ssKey(SER_DISK, CLIENT_VERSION);
-        if (fFlags == DB_SET_RANGE)
-            ssKey << make_pair(string("blockindex"), uint256(0));
-        CDataStream ssValue(SER_DISK, CLIENT_VERSION);
-        int ret = ReadAtCursor(pcursor, ssKey, ssValue, fFlags);
-        fFlags = DB_NEXT;
-        if (ret == DB_NOTFOUND)
-            break;
-        else if (ret != 0)
-            return false;
+      progress = 100;
+    }
+    if (progress != oldProgress)
+    {
+      char pString[256];
+      sprintf(pString, (_("Loading block index (%d%%)...")).c_str(), progress);
+      #ifdef QT_GUI
+        uiInterface.InitMessage(pString);
+      #endif
+      oldProgress = progress;
+    }
+    ccc += 1.0;
 
-        // Unserialize
+
+    // Unserialize
 
         try {
         string strType;

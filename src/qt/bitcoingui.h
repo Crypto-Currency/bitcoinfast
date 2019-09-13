@@ -12,6 +12,7 @@ class WalletModel;
 class TransactionView;
 class OverviewPage;
 class AddressBookPage;
+class SkinsPage;
 class SendCoinsDialog;
 class SignVerifyMessageDialog;
 class Notificator;
@@ -48,6 +49,7 @@ public:
         functionality.
     */
     void setWalletModel(WalletModel *walletModel);
+	void loadSkin();
 
 protected:
     void changeEvent(QEvent *e);
@@ -63,6 +65,7 @@ private:
 
     OverviewPage *overviewPage;
     QWidget *transactionsPage;
+	SkinsPage *skinsPage;
     AddressBookPage *addressBookPage;
     AddressBookPage *receiveCoinsPage;
     SendCoinsDialog *sendCoinsPage;
@@ -81,6 +84,8 @@ private:
     QAction *quitAction;
     QAction *sendCoinsAction;
     QAction *addressBookAction;
+	QAction *skinsPageAction;
+	QAction* openConfigAction;
     QAction *signMessageAction;
     QAction *verifyMessageAction;
     QAction *aboutAction;
@@ -118,9 +123,9 @@ private:
     /** Create system tray (notification) icon */
     void createTrayIcon();
 
-  void splashMessage(const std::string &message);
-
 public slots:
+    void splashMessage(const std::string &message, bool quickSleep = false);
+
     /** Set number of connections shown in the UI */
     void setNumConnections(int count);
     /** Set number of blocks shown in the UI */
@@ -141,6 +146,8 @@ public slots:
       @param[in] nFeeRequired       the required fee
       @param[out] payFee            true to pay the fee, false to not pay the fee
     */
+    void information(const QString &title, const QString &message);
+    void status(const QString &message);
     void askFee(qint64 nFeeRequired, bool *payFee);
     void handleURI(QString strURI);
 
@@ -151,6 +158,10 @@ private slots:
     void gotoHistoryPage();
     /** Switch to address book page */
     void gotoAddressBookPage();
+    /** Switch to skins page */
+    void gotoSkinsPage();
+    // Open BitcoinFast.conf
+    void openConfig();
     /** Switch to receive coins page */
     void gotoReceiveCoinsPage();
     /** Switch to send coins page */
