@@ -31,7 +31,7 @@
 14. wget 'http://downloads.sourceforge.net/project/libpng/zlib/1.2.7/zlib-1.2.7.tar.gz'
 15. wget 'http://sourceforge.net/projects/libpng/files/libpng15/older-releases/1.5.12/libpng-1.5.12.tar.gz'
 16. wget 'http://fukuchi.org/works/qrencode/qrencode-3.2.0.tar.bz2'
-17. wget 'http://download.qt-project.org/archive/qt/4.7/qt-everywhere-opensource-src-4.7.4.tar.gz'
+17. wget 'http://download.qt-project.org/archive/qt/4.8/4.8.1/qt-everywhere-opensource-src-4.8.1.tar.gz'
 18. cd ..
 
 ## Build Base Virtual Machine
@@ -41,7 +41,7 @@
 ## Build Bitcoin-Fast Windows Client
 
 20. sudo bin/gbuild ../bitcoin/contrib/gitian-descriptors/qt-win32.yml
-21. cp build/out/qt-win32-4.7.4-gitian.zip inputs
+21. cp build/out/qt-win32-4.8.1-gitian.zip inputs
 22. sudo bin/gbuild ../bitcoin/contrib/gitian-descriptors/boost-win32.yml
 23. cp build/out/boost-win32-1.49.0-gitian2.zip inputs
 24. sudo bin/gbuild ../bitcoin/contrib/gitian-descriptors/deps-win32.yml
