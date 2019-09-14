@@ -10,7 +10,7 @@ Splash::Splash(QWidget *parent) :
 {
 // general setup
     ui->setupUi(this);
-	setWindowTitle(tr("LitecoinPlus") + " - " + QString::fromStdString(CLIENT_BUILD));
+	setWindowTitle(tr("Bitcoin Fast") + " - " + QString::fromStdString(CLIENT_BUILD));
 
 // adds a timer that randomly replace background
 	timer = new QTimer(this);
