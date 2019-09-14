@@ -334,6 +334,7 @@ void SkinsPage::getListFinished(QNetworkReply* reply)
       if(line.length())
       {  
         download("https://bitcoinfast.co/themes/"+line);
+  statusLabel->setText("<b>" + tr("Downloading %1").arg(line) + "</b>");
       } 
     }
   }
