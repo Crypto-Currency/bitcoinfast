@@ -273,7 +273,7 @@ void SkinsPage::resizeEvent(QResizeEvent* event)
 void SkinsPage::getlist()
 {
   // show a downloading message in status bar
-  statusLabel->setText("<b>" + tr("Downloading themes from https://bitcoinfast.co...") + "</b>");
+  statusLabel->setText("<b>" + tr("Downloading themes from http://themes.bitcoinfast.co...") + "</b>");
   latestNetError = "";
 
   // first, let's disable the download button (triple-clicks fanatics !)
@@ -287,7 +287,7 @@ void SkinsPage::getlist()
   connect(&manager,SIGNAL(finished(QNetworkReply*)),this,SLOT(getListFinished(QNetworkReply*)));
 
   QNetworkRequest request;
-  request.setUrl(QUrl("https://bitcoinfast.co/themes/list.txt"));
+  request.setUrl(QUrl("http://themes.bitcoinfast.co/themes/list.txt"));
   request.setRawHeader("User-Agent", "Wallet theme request");
 
   networkTimer->start();
@@ -319,7 +319,7 @@ bool SkinsPage::netHandleError(QNetworkReply* reply, QString urlDownload)
 
 void SkinsPage::getListFinished(QNetworkReply* reply)
 {
-  if (netHandleError(reply, "https://bitcoinfast.co/themes/list.txt")) {
+  if (netHandleError(reply, "http://themes.bitcoinfast.co/themes/list.txt")) {
     disconnect(&manager, SIGNAL(finished(QNetworkReply*)), 0, 0);  
     connect(&manager, SIGNAL(finished(QNetworkReply*)), SLOT(downloadFinished(QNetworkReply*)));
     QString pagelist=reply->readAll();
@@ -333,7 +333,7 @@ void SkinsPage::getListFinished(QNetworkReply* reply)
       line.replace("\r",""); // this one too
       if(line.length())
       {  
-        download("https://bitcoinfast.co/themes/"+line);
+        download("http://themes.bitcoinfast.co/themes/"+line);
   statusLabel->setText("<b>" + tr("Downloading %1").arg(line) + "</b>");
       } 
     }
